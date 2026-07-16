@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../ui/theme/colors.dart';
 import '../../ui/widgets/dashboard_card.dart';
 
+import '../../utils/navigation_bar.dart';
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -12,49 +14,19 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
 
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: 0,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: Colors.black54,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: "Home",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory_2_outlined),
-            label: "Products",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            label: "Manage",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: "History",
-          ),
-        ],
-      ),
+      bottomNavigationBar: const NavBar(currentIndex: 0),
 
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-
           child: Column(
             children: [
-
               const SizedBox(height: 12),
-
               Image.asset(
                 "assets/images/TGFLogo.png",
                 height: 70,
               ),
-
               const SizedBox(height: 10),
-
               Text(
                 "Bulletin",
                 style: GoogleFonts.outfit(
@@ -62,9 +34,7 @@ class HomeScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 18),
-
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -77,9 +47,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 18),
-
               Center(
                 child: DashboardCard(
                   width: 150,
@@ -88,13 +56,11 @@ class HomeScreen extends StatelessWidget {
                   value: "4",
                   valueColor: AppColors.red,
                   onTap: () {
-                    print("Low Stock tapped"); // Testing, replace with function
+                    print("Low Stock tapped");
                   },
                 ),
               ),
-
               const SizedBox(height: 25),
-
             ],
           ),
         ),
