@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tgfinventory/utils/main_navigator.dart';
 import 'scenes/home/home_screen.dart';
 
 void main() {
@@ -12,7 +13,7 @@ class TGFInventory extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const HomeScreen(),
+      home: const ScreenTransition(),
     );
   }
 }

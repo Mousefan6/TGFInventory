@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 import '../../ui/theme/colors.dart';
 
 import '../scenes/home/home_screen.dart';
-import '../scenes/products/product_screen.dart';
+import '../scenes/products/products_screen.dart';
 // import '../scenes/manage/manage_screen.dart';
 // import '../scenes/history/history_screen.dart';
 
 class NavBar extends StatelessWidget {
   final int currentIndex;
+  final Function(int) onTap;
 
   const NavBar({
     super.key,
     required this.currentIndex,
+    required this.onTap,
   });
 
   void _onTabTapped(BuildContext context, int index) {
@@ -55,10 +57,7 @@ class NavBar extends StatelessWidget {
       currentIndex: currentIndex,
       selectedItemColor: AppColors.primary,
       unselectedItemColor: Colors.black54,
-      onTap: (index) => _onTabTapped(
-          context,
-          index
-      ),
+      onTap: onTap,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),

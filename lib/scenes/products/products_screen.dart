@@ -49,9 +49,6 @@ class ProductsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-
-      bottomNavigationBar: const NavBar(currentIndex: 1),
-
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
