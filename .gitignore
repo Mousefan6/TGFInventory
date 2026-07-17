@@ -33,6 +33,7 @@ migrate_working_dir/
 .env/
 /build/
 /coverage/
+/lib/utils/constants.dart
 
 # Symbolication related
 app.*.symbols
