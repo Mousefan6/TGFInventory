@@ -53,6 +53,12 @@ class HistoryScreen extends StatelessWidget {
       const History(name: "Tissue Paper Roll", amount: 18, add: true, user: "Bob", note: ""),
       const History(name: "Hand Sanitizer", amount: 5, add: false, user:"John", note: "Used for x"),
       const History(name: "Coffee Mate Creamer whole plastic tin", amount: 100000, add: true, user:"Mary", note:"Really Long note so I can fix later because this will be too long"),
+      const History(name: "Tissue Paper Roll", amount: 18, add: true, user: "Bob", note: ""),
+      const History(name: "Hand Sanitizer", amount: 5, add: false, user:"John", note: "Used for x"),
+      const History(name: "Coffee Mate Creamer whole plastic tin", amount: 100000, add: true, user:"Mary", note:"Really Long note so I can fix later because this will be too long"),
+      const History(name: "Tissue Paper Roll", amount: 18, add: true, user: "Bob", note: ""),
+      const History(name: "Hand Sanitizer", amount: 5, add: false, user:"John", note: "Used for x"),
+      const History(name: "Coffee Mate Creamer whole plastic tin", amount: 100000, add: true, user:"Mary", note:"Really Long note so I can fix later because this will be too long"),
     ];
 
     return Scaffold(
@@ -152,11 +158,11 @@ class HistoryScreen extends StatelessWidget {
   // Card factory, colors are static
   Widget _buildHistoryCard(BuildContext context, History history) {
 
-    final Color qtyColor;
+    final Color addColor;
     if (history.add) {
-      qtyColor = Colors.green.shade600;
+      addColor = Colors.green.shade600;
     } else {
-      qtyColor = Colors.red.shade600;
+      addColor = Colors.red.shade600;
     }
     return Container(
       decoration: BoxDecoration(
@@ -167,18 +173,19 @@ class HistoryScreen extends StatelessWidget {
           width: 1.5,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
                 history.add
-                    ? const Icon(Icons.add_circle_outline_sharp, color: Colors.green, size: 32,)
-                    : const Icon(Icons.remove_circle_outline_sharp, color: Colors.red, size: 32,)
+                    ? Icon(Icons.add_circle_outline_sharp, color: addColor, size: 40,)
+                    : Icon(Icons.remove_circle_outline_sharp, color: addColor, size: 32,)
             ],
           ),
+
           // Left column, History name
           Expanded(
             child: Column(
@@ -198,7 +205,6 @@ class HistoryScreen extends StatelessWidget {
                       color: const Color(0xFF0F172A),
                     ),
                   ),
-
                 ),
 
                   Text(
@@ -208,11 +214,19 @@ class HistoryScreen extends StatelessWidget {
                     style: GoogleFonts.outfit(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0F172A),
+                      color: Colors.grey.shade500,
                     ),
                   ),
-
-
+                Text(
+                  history.note,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
               ],
             ),
           ),
@@ -227,7 +241,7 @@ class HistoryScreen extends StatelessWidget {
                   fontSize: 38,
                   fontWeight: FontWeight.bold,
                   height: 1.0,
-                  color: qtyColor,
+                  color: addColor,
 
                 ),
               ),
