@@ -22,7 +22,7 @@ class _ScreenTransitionState extends State<ScreenTransition> {
     const HomeScreen(),
     const ProductsScreen(),
     const ManageStockScreen(),
-    const Scaffold(body: Center(child: Text("History Screen"))), // Index 3
+    const HistoryScreen(),
   ];
 
   @override

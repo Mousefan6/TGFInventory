@@ -32,8 +32,7 @@ class NavBar extends StatelessWidget {
         nextScreen = const ManageStockScreen();
         break;
       case 3:
-      // Replace with your real HistoryScreen widget
-        nextScreen = const Scaffold(body: Center(child: Text("History")));
+        nextScreen= const HistoryScreen();
         break;
       default:
         return;
