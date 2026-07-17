@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../services/appsheet_service.dart';
 import '../../ui/theme/colors.dart';
 
 class ManageStockScreen extends StatefulWidget {
@@ -46,10 +47,74 @@ class _FormInputWrapper extends StatelessWidget {
 }
 
 class _ManageStockScreenState extends State<ManageStockScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _apiService = AppSheetService();
+
   final _itemController = TextEditingController();
   final _qtyController = TextEditingController();
   final _userController = TextEditingController();
   final _commentController = TextEditingController();
+
+  bool _isLoading = false;
+
+  void _addStockLog() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final success = await _apiService.createStockLog(
+        item: _itemController.text,
+        quantity: int.parse(_qtyController.text),
+        user: _userController.text,
+        comment: _commentController.text.isEmpty ? "Stock Added" : _commentController.text,
+      );
+
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Item logged successfully')
+          ),
+        );
+        _clearForm();
+      }
+    } catch (e) {
+      _showErrorSnackBar(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _removeStockLog() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      int enteredQty = int.parse(_qtyController.text);
+
+      final success = await _apiService.createStockLog(
+        item: _itemController.text,
+        quantity: -enteredQty,
+        user: _userController.text,
+        comment: _commentController.text.isEmpty ? "Stock Removed" : _commentController.text,
+      );
+
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Item reduced successfully!'),
+            backgroundColor: AppColors.redButton,
+          ),
+        );
+        _clearForm();
+      }
+    } catch (e) {
+      _showErrorSnackBar(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -60,14 +125,33 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
     super.dispose();
   }
 
+  void _clearForm() {
+    _itemController.clear();
+    _qtyController.clear();
+    _userController.clear();
+    _commentController.clear();
+    _formKey.currentState?.reset();
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $message'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-          child:SingleChildScrollView(
+          child: _isLoading ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
             padding:const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
+              child: Form(
+                key:_formKey,
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                   const SizedBox(height: 20),
@@ -86,12 +170,16 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
                     // Item selection field
                     _FormInputWrapper(
                       label: "Item",
-                      child: TextField(
+                      child: TextFormField(
                         controller: _itemController,
                         readOnly: true, // Need to be changed to search and have dropdown
                         onTap: () {
                           print("Select product tapped");
+                          setState(() {
+                            _itemController.text = "Test Item 1";
+                          });
                         },
+                        validator: (v) => v!.isEmpty ? 'Please select a product' : null,
                         decoration: InputDecoration(
                           hintText: "Search product",
                           hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 18),
@@ -107,10 +195,15 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
                     // Quantity field
                     _FormInputWrapper(
                       label: "Quantity",
-                      child: TextField(
+                      child: TextFormField(
                         controller: _qtyController,
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) return 'Please enter a quantity';
+                          if (int.tryParse(value) == null || int.parse(value) <= 0) return 'Enter a valid amount';
+                          return null;
+                        },
                         decoration: InputDecoration(
                           hintText: "0",
                           hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 18),
@@ -125,11 +218,12 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
                     // User selection field
                     _FormInputWrapper(
                       label: "User",
-                      child: TextField(
+                      child: TextFormField(
                         controller: _userController,
                         readOnly: true, // Need to be changed to search and have dropdown
                         onTap: () {
                           print("Select user tapped");
+                          _userController.text = "Bryson Villago";
                         },
                         decoration: InputDecoration(
                           hintText: "Your name",
@@ -146,7 +240,7 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
                     // Comment field
                     _FormInputWrapper(
                       label: "Comment",
-                      child: TextField(
+                      child: TextFormField(
                         controller: _commentController,
                         decoration: InputDecoration(
                           hintText: "Optional note",
@@ -165,7 +259,7 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
                       height: 56,
                       child: ElevatedButton(
                         onPressed: () {
-                          print("Add to stock pressed");
+                          _addStockLog();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.greenButton,
@@ -194,6 +288,7 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
                       child: OutlinedButton(
                         onPressed: () {
                           print("Remove from stock pressed");
+                          _removeStockLog();
                         },
                         style: OutlinedButton.styleFrom(
                           backgroundColor: const Color(0xFFFCE8EC),
@@ -216,7 +311,8 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
                   ],
               ),
           ),
-      ),
+          ),
+      )
     );
   }
 }
