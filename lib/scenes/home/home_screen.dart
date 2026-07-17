@@ -4,8 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../ui/theme/colors.dart';
 import '../../ui/widgets/dashboard_card.dart';
 
-import '../../utils/navigation_bar.dart';
-
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 

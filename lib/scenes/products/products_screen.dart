@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../ui/theme/colors.dart';
-import '../../utils/navigation_bar.dart';
 
 class Product { // Product cards for each item
   final String name;

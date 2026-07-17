@@ -3,8 +3,8 @@ import '../../ui/theme/colors.dart';
 
 import '../scenes/home/home_screen.dart';
 import '../scenes/products/products_screen.dart';
-// import '../scenes/manage/manage_screen.dart';
-// import '../scenes/history/history_screen.dart';
+import '../scenes/manage/manage_screen.dart';
+import '../scenes/history/history_screen.dart';
 
 class NavBar extends StatelessWidget {
   final int currentIndex;
@@ -29,8 +29,7 @@ class NavBar extends StatelessWidget {
         nextScreen = const ProductsScreen();
         break;
       case 2:
-      // Replace with your real ManageScreen widget
-        nextScreen = const Scaffold(body: Center(child: Text("Manage")));
+        nextScreen = const ManageStockScreen();
         break;
       case 3:
       // Replace with your real HistoryScreen widget
@@ -48,7 +47,7 @@ class NavBar extends StatelessWidget {
       ),
     );
   }
-  // TODO: Create slideshow swiping transition animation
+
   @override
   Widget build(BuildContext context) {
     return BottomNavigationBar(

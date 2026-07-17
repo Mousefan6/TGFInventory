@@ -3,8 +3,8 @@ import 'navigation_bar.dart';
 
 import '../scenes/home/home_screen.dart';
 import '../scenes/products/products_screen.dart';
-// import 'manage_screen.dart';
-// import 'history_screen.dart';
+import '../scenes/manage/manage_screen.dart';
+import '../scenes/history/history_screen.dart';
 
 class ScreenTransition extends StatefulWidget {
   const ScreenTransition({super.key});
@@ -21,7 +21,7 @@ class _ScreenTransitionState extends State<ScreenTransition> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const ProductsScreen(),
-    const Scaffold(body: Center(child: Text("Manage Screen"))), // Index 2
+    const ManageStockScreen(),
     const Scaffold(body: Center(child: Text("History Screen"))), // Index 3
   ];
 
