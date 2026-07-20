@@ -99,4 +99,44 @@ class AppSheetService {
     final response = await http.post(_getUri(), headers: _getHeaders(), body: body);
     return response.statusCode == 200;
   }
+
+  // Function to get total stock for specific item given name
+  Future<int> getItemStockCount(String itemName) async {
+    final allLogs = await readAllLogs();
+    int currentTotalStock = 0;
+
+    for (var row in allLogs) {
+      if ((row['Item'] ?? row['name']) == itemName) {
+        final rawQty = row['Quantity'];
+        currentTotalStock += rawQty is int ? rawQty : int.tryParse(rawQty.toString()) ?? 0;
+      }
+    }
+    return currentTotalStock;
+  }
+
+  // returns a fully summarized list of all products (grouped and summed)
+  Future<List<Map<String, dynamic>>> getAggregatedInventory() async {
+    final rawData = await readAllLogs();
+    final Map<String, int> inventoryMap = {};
+
+    for (var row in rawData) {
+      final String itemName = row['Item'] ?? row['name'] ?? 'Unknown Product';
+      final rawQty = row['Quantity'];
+      final int parsedQty = rawQty is int ? rawQty : int.tryParse(rawQty.toString()) ?? 0;
+
+      inventoryMap[itemName] = (inventoryMap[itemName] ?? 0) + parsedQty;
+    }
+
+    final List<Map<String, dynamic>> flatInventory = [];
+    inventoryMap.forEach((name, totalQuantity) {
+      if (totalQuantity > 0) {
+        flatInventory.add({
+          'Item': name,
+          'Quantity': totalQuantity,
+        });
+      }
+    });
+
+    return flatInventory;
+  }
 }

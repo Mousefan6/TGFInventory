@@ -12,4 +12,4 @@ class Product {
     required this.quantity,
     required this.location,
   });
-} // Map to PostgreSQL later
+}

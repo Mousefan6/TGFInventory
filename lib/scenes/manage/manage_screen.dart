@@ -73,7 +73,8 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Item logged successfully')
+            content: Text('Item(s) logged successfully!'),
+            backgroundColor: AppColors.greenButton,
           ),
         );
         _clearForm();
@@ -92,6 +93,21 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
 
     try {
       int enteredQty = int.parse(_qtyController.text);
+      String targetItem = _itemController.text;
+
+      int currentTotalStock = await _apiService.getItemStockCount(targetItem);
+
+      if (enteredQty > currentTotalStock) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Invalid Action: Only $currentTotalStock units available.'),
+              backgroundColor: Colors.amber.shade900,
+            ),
+          );
+        }
+        return;
+      }
 
       final success = await _apiService.createStockLog(
         item: _itemController.text,
@@ -103,8 +119,8 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Item reduced successfully!'),
-            backgroundColor: AppColors.redButton,
+            content: Text('Item(s) removed successfully!'),
+            backgroundColor: AppColors.greenButton,
           ),
         );
         _clearForm();
