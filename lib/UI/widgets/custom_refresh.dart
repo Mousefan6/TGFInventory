@@ -1,7 +1,8 @@
+import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 
-class CustomPullToRefresh extends StatefulWidget {
+class CustomPullToRefresh extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final Widget child;
 
@@ -12,123 +13,59 @@ class CustomPullToRefresh extends StatefulWidget {
   });
 
   @override
-  State<CustomPullToRefresh> createState() => _CustomPullToRefreshState();
-}
-
-class _CustomPullToRefreshState extends State<CustomPullToRefresh> {
-  double _dragOffset = 0.0;
-  bool _isRefreshing = false;
-  static const double _triggerThreshold = 70.0; // Execution drag boundary limit
-
-  bool _handleScrollNotification(ScrollNotification notification) {
-    if (_isRefreshing) return false;
-
-    if (notification is ScrollUpdateNotification || notification is OverscrollNotification) {
-      if (notification.metrics.pixels < 0) {
-        setState(() {
-          _dragOffset = notification.metrics.pixels.abs();
-        });
-      }
-      // else if (_dragOffset != 0) {
-      //   setState(() {
-      //     _dragOffset = 0.0;
-      //   });
-      // }
-    } else if (notification is ScrollEndNotification) {
-      if (_dragOffset >= _triggerThreshold) { // Triggers refresh if pulled too much
-        _executeRefresh();
-      } else {
-        setState(() {
-          _dragOffset = 0.0;
-        });
-      }
-    }
-    return false;
-  }
-
-  void _executeRefresh() async {
-    setState(() {
-      _isRefreshing = true;
-      _dragOffset = 0.0;
-    });
-
-    try {
-      await widget.onRefresh();
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRefreshing = false;
-        });
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    double progress = (_dragOffset / _triggerThreshold).clamp(0.0, 1.0);
+    const double containerHeight = 70.0; // Gap between cards and icon
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: _handleScrollNotification,
-      child: Stack(
-        children: [
-          if (_dragOffset > 0 && !_isRefreshing)
-            Positioned(
-              top: _dragOffset * 0.3,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Opacity(
-                  opacity: progress,
-                  child: Transform.scale(
-                    scale: progress,
-                    child: Icon(
-                      Icons.refresh_rounded,
-                      color: AppColors.greenButton,
-                      size: 32,
+    return CustomRefreshIndicator(
+      onRefresh: onRefresh,
+
+      offsetToArmed: containerHeight,
+      builder: ( // Pull down distance required to trigger the refresh
+          BuildContext context,
+          Widget child,
+          IndicatorController controller,
+          ) {
+        return AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            // controller.value goes from 0.0 -> 1.0 (can go above 1.0 if overpulled)
+            final double pullValue = controller.value.clamp(0.0, 1.5);
+            // Pixel displacement of the drag, reset to 0 if refreshing
+            final double dy = controller.isLoading ? 0.0 : (pullValue * containerHeight);
+
+            return Stack(
+              children: [
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: dy,
+                  child: Center(
+                    child: controller.isLoading
+                        ? const SizedBox.shrink()
+                        : Opacity(
+                      opacity: pullValue.clamp(0.0, 1.0),
+                      child: Transform.scale(
+                        scale: pullValue.clamp(0.2, 1.0),
+                        child: const Icon(
+                          Icons.refresh_rounded,
+                          color: AppColors.greenButton,
+                          size: 30,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-
-          // Padding(
-          //   padding: EdgeInsets.only(top: _isRefreshing ? 40.0 : 0.0),
-          //   child: widget.child,
-          // ),
-
-          AnimatedPadding(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            padding: EdgeInsets.only(top: _isRefreshing ? 50.0 : 0.0),
-            child: ScrollConfiguration(
-              behavior: const ScrollBehavior().copyWith(
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
+                Transform.translate(
+                  offset: Offset(0, dy),
+                  child: child,
                 ),
-              ),
-              child: widget.child,
-            ),
-          ),
-
-          // Inline loading spinner overlay replacing the bubble popup completely
-          if (_isRefreshing)
-            const Positioned(
-              top: 15,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.greenButton),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+              ],
+            );
+          },
+        );
+      },
+      child: child,
     );
   }
 }
