@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tgfinventory/UI/widgets/custom_refresh.dart';
 
+import '../../services/appsheet_service.dart';
 import '../../ui/theme/colors.dart';
 
 class History { // History cards for each item
@@ -16,27 +18,70 @@ class History { // History cards for each item
     required this.add,
     required this.user,
     required this.note,
-
   });
+
+  // Builds log from parsing individual lines from AppSheet transaction logs
+  factory History.fromJson(Map<String, dynamic> json) {
+    final rawQty = json['Quantity'];
+    final int parsedQty = rawQty is int ? rawQty : int.tryParse(rawQty.toString()) ?? 0;
+
+    return History(
+      name: json['Item'] ?? json['name'] ?? 'Unknown Product',
+      amount: parsedQty.abs(),
+      add: parsedQty >= 0,
+      user: json['User'] ?? 'Unknown User',
+      note: json['Comment'] ?? json['note'] ?? '',
+    );
+  }
 }
 
-// TODO: Scrolling down stretches the cards vs when it tries to go up it just bounces back
-
-class HistoryScreen extends StatelessWidget {
+class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
-  void _showHistoryDetails(BuildContext context, History history) { // POPUP for long names
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  final AppSheetService _apiService = AppSheetService();
+  late Future<List<History>> _historyFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  void _loadHistory() {
+    setState(() {
+      _historyFuture = _fetchHistoryFromAppSheet();
+    });
+  }
+
+  // Newest to oldest order
+  Future<List<History>> _fetchHistoryFromAppSheet() async {
+    final rawLogs = await _apiService.readAllLogs();
+    return rawLogs.map((jsonRow) => History.fromJson(jsonRow)).toList().reversed.toList();
+  }
+
+  Future<void> _handleHistoryRefresh() async {
+    _loadHistory();
+    await _historyFuture;
+  }
+
+  void _showHistoryDetails(BuildContext context, History history) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(history.name,
             style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         content: Text(
-          "${history.add ? 'Added' : 'Removed'} ${history.amount} Units\n"
-              "User: ${history.name}\n"
-              "Note: ${history.note}",
+          "${history.add ? 'Added' : 'Removed'} ${history.amount} Units\n\n"
+              "Operator: ${history.name}\n\n"
+              "Note: ${history.note.isEmpty ? 'No description' : history.note}",
           style: GoogleFonts.outfit(),
-        ),        actions: [
+        ),
+        actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text("Close"),
@@ -48,19 +93,6 @@ class HistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // REPLACE ARRAY (MOCK DATABASE)
-    final List<History> history = [
-      const History(name: "Tissue Paper Roll", amount: 18, add: true, user: "Bob", note: ""),
-      const History(name: "Hand Sanitizer", amount: 5, add: false, user:"John", note: "Used for x"),
-      const History(name: "Coffee Mate Creamer whole plastic tin", amount: 100000, add: true, user:"Mary", note:"Really Long note so I can fix later because this will be too long"),
-      const History(name: "Tissue Paper Roll", amount: 18, add: true, user: "Bob", note: ""),
-      const History(name: "Hand Sanitizer", amount: 5, add: false, user:"John", note: "Used for x"),
-      const History(name: "Coffee Mate Creamer whole plastic tin", amount: 100000, add: true, user:"Mary", note:"Really Long note so I can fix later because this will be too long"),
-      const History(name: "Tissue Paper Roll", amount: 18, add: true, user: "Bob", note: ""),
-      const History(name: "Hand Sanitizer", amount: 5, add: false, user:"John", note: "Used for x"),
-      const History(name: "Coffee Mate Creamer whole plastic tin", amount: 100000, add: true, user:"Mary", note:"Really Long note so I can fix later because this will be too long"),
-    ];
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -109,7 +141,7 @@ class HistoryScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // Header
+              // Table Headings
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: Row(
@@ -139,13 +171,42 @@ class HistoryScreen extends StatelessWidget {
 
               // List of history
               Expanded(
-                child: ListView.separated(
-                  itemCount: history.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final hist = history[index];
-                    return _buildHistoryCard(context, hist);
-                  },
+                child: CustomPullToRefresh(
+                  onRefresh: _handleHistoryRefresh,
+                  child: FutureBuilder<List<History>>(
+                    future: _historyFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (snapshot.hasError) {
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                            Center(child: Text('Error loading history logs.\nSwipe down to retry.', textAlign: TextAlign.center, style: GoogleFonts.outfit(color: Colors.grey))),
+                          ],
+                        );
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                            Center(child: Text('No historical logs registered yet.', style: GoogleFonts.outfit(color: Colors.grey))),
+                          ],
+                        );
+                      }
+
+                      final logs = snapshot.data!;
+                      return ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: logs.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          return _buildHistoryCard(context, logs[index]);
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
@@ -155,7 +216,7 @@ class HistoryScreen extends StatelessWidget {
     );
   }
 
-  // Card factory, colors are static
+  // Create log cards, Colors are static
   Widget _buildHistoryCard(BuildContext context, History history) {
 
     final Color addColor;
@@ -164,6 +225,7 @@ class HistoryScreen extends StatelessWidget {
     } else {
       addColor = Colors.red.shade600;
     }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -173,7 +235,7 @@ class HistoryScreen extends StatelessWidget {
           width: 1.5,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
+      padding: const EdgeInsets.only(left: 12, right: 16, top: 16, bottom: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

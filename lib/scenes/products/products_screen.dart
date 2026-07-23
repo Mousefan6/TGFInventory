@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../UI/widgets/custom_refresh.dart';
+import '../../services/appsheet_service.dart';
 import '../../ui/theme/colors.dart';
 
 class Product { // Product cards for each item
@@ -13,20 +15,69 @@ class Product { // Product cards for each item
     required this.quantity,
     required this.isLowStock,
   });
+
+  // Build product card parsing JSON from AppSheet
+  factory Product.fromJson(Map<String, dynamic> json) {
+    final rawQty = json['Quantity'];
+    final int parsedQty = rawQty is int ? rawQty : int.tryParse(rawQty.toString()) ?? 0;
+
+    return Product(
+      name: json['Item'] ?? json['name'] ?? 'Unknown Product',
+      quantity: parsedQty,
+      isLowStock: parsedQty <= 5, // Might need to change hard set parameter
+    );
+  }
 }
 
-// TODO: Scrolling down stretches the cards vs when it tries to go up it just bounces back
-
-class ProductsScreen extends StatelessWidget {
+class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
 
-  void _showProductDetails(BuildContext context, Product product) { // POPUP for long names
+  @override
+  State<ProductsScreen> createState() => _ProductsScreenState();
+}
+
+class _ProductsScreenState extends State<ProductsScreen> {
+  final AppSheetService _apiService = AppSheetService();
+  late Future<List<Product>> _productsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  void _loadProducts() {
+    setState(() {
+      _productsFuture = _fetchProductsFromAppSheet();
+    });
+  }
+
+  // Fetch data from appsheet
+  Future<List<Product>> _fetchProductsFromAppSheet() async {
+    final aggregatedData = await _apiService.getAggregatedInventory();
+    return aggregatedData.map((jsonRow) => Product.fromJson(jsonRow)).toList();
+  }
+
+  // Refresh helper
+  Future<void> _handleRefresh() async {
+    _loadProducts();
+    await _productsFuture;
+  }
+
+  void _showProductDetails(BuildContext context, Product product) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(product.name,
-            style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-        content: Text("Current Stock: ${product.quantity} Units", style: GoogleFonts.outfit()),
+        title: Text(
+            product.name,
+            style: GoogleFonts.outfit(
+                fontWeight:
+                FontWeight.bold
+            )
+        ),
+        content: Text("Current Stock: ${product.quantity} Units",
+            style: GoogleFonts.outfit()
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -39,13 +90,6 @@ class ProductsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // REPLACE ARRAY (MOCK DATABASE)
-    final List<Product> products = [
-      const Product(name: "Tissue Paper Roll", quantity: 18, isLowStock: false),
-      const Product(name: "Hand Sanitizer", quantity: 5, isLowStock: true),
-      const Product(name: "Coffee Mate Creamer whole plastic tin", quantity: 1, isLowStock: true),
-    ];
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -56,7 +100,6 @@ class ProductsScreen extends StatelessWidget {
             children: [
               const SizedBox(height: 20),
 
-              // Title screen
               Center(
                 child: Text(
                   "Products",
@@ -67,10 +110,9 @@ class ProductsScreen extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 20),
 
-              // Search bar
+              // Search bar container
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -82,54 +124,92 @@ class ProductsScreen extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: "Search product",
                     hintStyle: GoogleFonts.outfit(
-                      color: Colors.grey.shade400,
-                      fontSize: 18,
+                        color: Colors.grey.shade400,
+                        fontSize: 18
                     ),
                     border: InputBorder.none,
-                    icon: Icon(Icons.search_rounded, color: Colors.grey.shade700, size: 28),
-                    suffixIcon: Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                    icon: Icon(
+                        Icons.search_rounded,
+                        color: Colors.grey.shade700,
+                        size: 28
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Header
+              // List Headers
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      "Product",
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.greyText,
-                      ),
+                        "Product",
+                        style: GoogleFonts.outfit(fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.greyText)
                     ),
                     Text(
-                      "QTY",
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.greyText,
-                      ),
+                        "QTY",
+                        style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.greyText
+                        )
                     ),
                   ],
                 ),
               ),
-
               const SizedBox(height: 10),
 
-              // List of products
+              // Refresh logic
               Expanded(
-                child: ListView.separated(
-                  itemCount: products.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final product = products[index];
-                    return _buildProductCard(context, product);
-                  },
+                child: CustomPullToRefresh(
+                  onRefresh: _handleRefresh,
+                  child: FutureBuilder<List<Product>>(
+                    future: _productsFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (snapshot.hasError) {
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                            Center(
+                                child: Text('Error loading inventory data.\nSwipe down to retry.',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.outfit(color: Colors.grey)
+                                )
+                            ),
+                          ],
+                        );
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                            Center(
+                                child: Text('No products currently registered.',
+                                    style: GoogleFonts.outfit(color: Colors.grey)
+                                )
+                            ),
+                          ],
+                        );
+                      }
+
+                      final products = snapshot.data!;
+                      return ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: products.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          return _buildProductCard(context, products[index]);
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
@@ -139,11 +219,10 @@ class ProductsScreen extends StatelessWidget {
     );
   }
 
-  // Card factory, colors are static
   Widget _buildProductCard(BuildContext context, Product product) {
     final Color qtyColor;
     if (product.isLowStock) {
-      qtyColor = product.quantity <= 1 ? AppColors.red : Colors.orange.shade700;
+      qtyColor = product.quantity <= 1 ? AppColors.redButton : Colors.orange.shade700;
     } else {
       qtyColor = Colors.green.shade600;
     }
@@ -152,71 +231,46 @@ class ProductsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.border,
-          width: 1.5,
-        ),
+        border: Border.all(color: AppColors.border, width: 1.5),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Left column, product name
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 InkWell(
-                  onTap: () {
-                    _showProductDetails(context, product);
-                  },
+                  onTap: () => _showProductDetails(context, product),
                   child: Text(
                     product.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0F172A),
-                    ),
+                    style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
                   ),
                 ),
                 if (product.isLowStock) ...[
                   const SizedBox(height: 4),
                   Text(
                     "LOW STOCK",
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange.shade700,
-                    ),
+                    style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.orange.shade700),
                   ),
                 ]
               ],
             ),
           ),
-
-          // Right column, Quantity and units
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 "${product.quantity}",
-                style: GoogleFonts.outfit(
-                  fontSize: 38,
-                  fontWeight: FontWeight.bold,
-                  color: qtyColor,
-                  height: 1.0,
-                ),
+                style: GoogleFonts.outfit(fontSize: 38, fontWeight: FontWeight.bold, color: qtyColor, height: 1.0),
               ),
               const SizedBox(height: 2),
               Text(
                 "Units",
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade500,
-                ),
+                style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
               ),
             ],
           ),
