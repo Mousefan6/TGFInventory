@@ -219,12 +219,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // Create log cards, Colors are static
   Widget _buildHistoryCard(BuildContext context, History history) {
 
-    // TODO: Change to dynamic color gradient shift later
-    final Color qtyColor;
+    final Color addColor;
     if (history.add) {
-      qtyColor = Colors.green.shade600;
+      addColor = Colors.green.shade600;
     } else {
-      qtyColor = Colors.red.shade600;
+      addColor = Colors.red.shade600;
     }
 
     return Container(
@@ -241,13 +240,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
                 history.add
-                    ? const Icon(Icons.add_circle_outline_sharp, color: Colors.green, size: 32,)
-                    : const Icon(Icons.remove_circle_outline_sharp, color: Colors.red, size: 32,)
+                    ? Icon(Icons.add_circle_outline_sharp, color: addColor, size: 40,)
+                    : Icon(Icons.remove_circle_outline_sharp, color: addColor, size: 32,)
             ],
           ),
+
           // Left column, History name
           Expanded(
             child: Column(
@@ -267,7 +267,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       color: const Color(0xFF0F172A),
                     ),
                   ),
-
                 ),
 
                   Text(
@@ -277,11 +276,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     style: GoogleFonts.outfit(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0F172A),
+                      color: Colors.grey.shade500,
                     ),
                   ),
-
-
+                Text(
+                  history.note,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
               ],
             ),
           ),
@@ -296,7 +303,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   fontSize: 38,
                   fontWeight: FontWeight.bold,
                   height: 1.0,
-                  color: qtyColor,
+                  color: addColor,
 
                 ),
               ),
