@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
 
-class AppSheetService {
+class InventoryService {
   static const String inventoryTable = "TGF Inventory Database";
-  static const String bulletinTable = "Bulletin Board";
+  static const String bulletinTable = "TGF Inventory Database: Bulletin Board";
 
   Uri _getUri([String? tableName]) {
     final targetTable = tableName ?? inventoryTable;
@@ -126,7 +126,7 @@ class AppSheetService {
       return List<Map<String, dynamic>>.from(decoded);
     }
 
-    throw Exception("Failed to fetch records");
+    throw Exception("Failed to fetch records: ${response.statusCode}");
   }
 
   Future<bool> updateStockLog({
@@ -159,7 +159,6 @@ class AppSheetService {
     return response.statusCode == 200;
   }
 
-  // TODO: Add a button that allows the user to remove a log/item completely from database
   // Remove log
   Future<bool> deleteStockLog(String logId) async {
     final body = jsonEncode({
@@ -192,7 +191,7 @@ class AppSheetService {
     return total;
   }
 
-  // Summarized list of all products (grouped and summed)
+  // Summarized list of all products
   Future<List<Map<String, dynamic>>> getAggregatedInventory() async {
     final rawData = await readAllLogs();
 
@@ -221,14 +220,17 @@ class AppSheetService {
     return inventory;
   }
 
-  // Bulletin Board
+  // ==========================
+  // Bulletin Board Methods
+  // ==========================
+
   Future<bool> createBulletinPost({required String user, required String comment}) async {
     final body = jsonEncode({
       "Action": "Add",
       "Properties": {"Locale": "en-US"},
       "Rows": [
         {
-          "LogID": DateTime.now().millisecondsSinceEpoch.toString(), // Ensures a primary key is always provided
+          "LogID": DateTime.now().millisecondsSinceEpoch.toString(),
           "User": user,
           "Comment": comment,
           "Timestamp": DateTime.now().toIso8601String(),
@@ -258,26 +260,29 @@ class AppSheetService {
       body: body,
     );
 
-    if (response.statusCode == 200) {
+    if (response.statusCode == 200 && response.body.isNotEmpty) {
       final decoded = jsonDecode(response.body);
-      return List<Map<String, dynamic>>.from(decoded);
+      if (decoded is List) {
+        return List<Map<String, dynamic>>.from(decoded);
+      }
     }
 
-    throw Exception("Failed to fetch bulletin posts");
+    return [];
   }
 
   Future<bool> deleteBulletinPost(Map<String, dynamic> postRow) async {
-    // Dynamically look for the correct row key returned by AppSheet
     final keyVal = postRow['LogID'] ??
         postRow['ID'] ??
+        postRow['id'] ??
         postRow['Row ID'] ??
         postRow['_RowNumber'] ??
         postRow.values.first;
 
-    final keyName = postRow.containsKey('ID') ? 'ID' :
+    final keyName = postRow.containsKey('LogID') ? 'LogID' :
+    postRow.containsKey('ID') ? 'ID' :
     postRow.containsKey('id') ? 'id' :
     postRow.containsKey('Row ID') ? 'Row ID' :
-    postRow.containsKey('_RowNumber') ? '_RowNumber' : 'ID';
+    postRow.containsKey('_RowNumber') ? '_RowNumber' : 'LogID';
 
     final body = jsonEncode({
       "Action": "Delete",

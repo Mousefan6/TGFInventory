@@ -7,6 +7,7 @@ import '../../ui/widgets/search_product.dart';
 import '../../ui/theme/colors.dart';
 
 // TODO: Update the UI for product details for product and history page
+// TODO: Scroll momentum for products, history, home (for bulletin)
 
 class Product {
   final String name;
@@ -40,7 +41,7 @@ class ProductsScreen extends StatefulWidget {
 
 class _ProductsScreenState extends State<ProductsScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final AppSheetService _apiService = AppSheetService();
+  final InventoryService _apiService = InventoryService();
 
   List<Product> _allProducts = [];
   List<Product> _filteredProducts = [];
@@ -59,10 +60,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _loadProducts() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final rawData = await _apiService.getAggregatedInventory();
       final products = rawData.map((json) => Product.fromJson(json)).toList();
+
+      if (!mounted) return;
       setState(() {
         _allProducts = products;
         _isLoading = false;
@@ -70,6 +74,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
       _filterProductList(_searchController.text);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       debugPrint("Error loading products: $e");
     }
@@ -104,12 +109,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final lowerQuery = rawQuery.toLowerCase();
     final queryTokens = lowerQuery.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
 
+    if (!mounted) return;
+
     setState(() {
       if (queryTokens.isEmpty) {
-        setState(() {
-          _filteredProducts = List.from(_allProducts);
-        });
-        return;
+        _filteredProducts = List.from(_allProducts);
       } else {
         // Filter items containing all typed tokens
         var matches = _allProducts.where((product) {

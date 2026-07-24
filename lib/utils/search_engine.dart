@@ -18,7 +18,7 @@ class DatabaseItemSearchBar extends StatefulWidget {
 }
 
 class _DatabaseItemSearchBarState extends State<DatabaseItemSearchBar> {
-  final AppSheetService _apiService = AppSheetService();
+  final InventoryService _apiService = InventoryService();
   final SearchController _searchController = SearchController();
 
   List<String>? _cachedItems;

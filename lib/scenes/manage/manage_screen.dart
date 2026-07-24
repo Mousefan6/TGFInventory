@@ -50,7 +50,7 @@ class _FormInputWrapper extends StatelessWidget {
 
 class _ManageStockScreenState extends State<ManageStockScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _apiService = AppSheetService();
+  final _apiService = InventoryService();
 
   final _itemController = TextEditingController();
   final _qtyController = TextEditingController();

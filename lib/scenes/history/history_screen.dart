@@ -45,7 +45,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final TextEditingController _historySearchController = TextEditingController();
-  final AppSheetService _apiService = AppSheetService();
+  final InventoryService _apiService = InventoryService();
 
   List<History> _allHistory = [];
   List<History> _filteredHistory = [];

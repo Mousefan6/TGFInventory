@@ -29,7 +29,7 @@ class SearchProduct extends StatefulWidget {
 }
 
 class _SearchProductState extends State<SearchProduct> {
-  final AppSheetService _apiService = AppSheetService();
+  final InventoryService _apiService = InventoryService();
   final SearchController _searchController = SearchController();
 
   List<String>? _cachedItems;

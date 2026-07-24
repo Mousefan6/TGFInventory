@@ -18,7 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _bulletinPosts = [];
   bool _isLoading = true;
   bool _isPosting = false;
-  Set<String> _deletingPosts = {};
+  final Set<String> _deletingPosts = {};
 
   @override
   void initState() {

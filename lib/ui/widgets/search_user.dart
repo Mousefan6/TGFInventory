@@ -20,7 +20,7 @@ class SearchUser extends StatefulWidget {
 }
 
 class _SearchUserState extends State<SearchUser> {
-  final AppSheetService _apiService = AppSheetService();
+  final InventoryService _apiService = InventoryService();
   final SearchController _searchController = SearchController();
 
   @override
