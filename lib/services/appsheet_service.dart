@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
+import '../utils/constants.dart'; // Might be necessary
 
 class AppSheetService {
   final String tableName = 'TGF Inventory Database';
@@ -14,6 +16,36 @@ class AppSheetService {
       'Content-Type': 'application/json',
       'applicationAccessKey': AppConfig.appsheetAccessKey,
     };
+  }
+
+  Future<List<String>> fetchItemNames(String query) async {
+    if (query.trim().isEmpty) return [];
+
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConfig.baseUrl}/Items/Action'),
+        headers: {
+          'ApplicationAccessKey': AppConfig.appsheetAccessKey,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          "Action": "Find",
+          "Properties": {
+            "Locale": "en-US",
+            "Timezone": "Standard Time"
+          },
+          "Selector": "Filter(Items, CONTAINS([Item], \"$query\"))"
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((item) => item['Item'].toString()).toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching items: $e');
+    }
+    return [];
   }
 
   // Create new stock item

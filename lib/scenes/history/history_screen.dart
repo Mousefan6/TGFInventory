@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tgfinventory/UI/widgets/custom_refresh.dart';
+import 'package:tgfinventory/UI/widgets/search_product.dart';
 
 import '../../services/appsheet_service.dart';
 import '../../ui/theme/colors.dart';
@@ -43,6 +44,7 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
+  final TextEditingController _historySearchController = TextEditingController();
   final AppSheetService _apiService = AppSheetService();
   late Future<List<History>> _historyFuture;
 
@@ -52,9 +54,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _loadHistory();
   }
 
+  @override
+  void dispose() {
+    _historySearchController.dispose();
+    super.dispose();
+  }
+
+
   void _loadHistory() {
     setState(() {
       _historyFuture = _fetchHistoryFromAppSheet();
+    });
+  }
+
+  void _filterHistoryLogs(String selectedProduct) {
+    setState(() {
+      // TODO: Filter history logs matching `selectedProduct`
+      debugPrint("Filtering history for: $selectedProduct");
     });
   }
 
@@ -118,27 +134,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SizedBox(height: 20),
 
               // Search bar
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: AppColors.border, width: 1.5),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: "Search history",
-                    hintStyle: GoogleFonts.outfit(
-                      color: Colors.grey.shade400,
-                      fontSize: 18,
-                    ),
-                    border: InputBorder.none,
-                    icon: Icon(Icons.search_rounded, color: Colors.grey.shade700, size: 28),
-                    suffixIcon: Icon(Icons.chevron_right, color: Colors.grey.shade400),
-                  ),
-                ),
+              SearchProduct(
+                controller: _historySearchController,
+                hintText: "Filter logs by product...",
+                showRegisterOption: false,
+                onItemSelected: (selectedProduct) {
+                  _filterHistoryLogs(selectedProduct);
+                },
               ),
-
               const SizedBox(height: 24),
 
               // Table Headings

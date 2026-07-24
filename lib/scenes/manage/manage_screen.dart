@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/appsheet_service.dart';
+import '../../ui/widgets/search_product.dart';
 import '../../ui/theme/colors.dart';
 
 class ManageStockScreen extends StatefulWidget {
@@ -157,6 +158,49 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
     }
   }
 
+  // Helper for register as new item ONLY FOR MANAGE SCREEN
+  void _showRegisterItemDialog(String initialName) {
+    final nameController = TextEditingController(text: initialName);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Register New Item", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: "Item Name",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.greenButton),
+            onPressed: () {
+              final registeredName = nameController.text.trim();
+              if (registeredName.isNotEmpty) {
+                setState(() {
+                  _itemController.text = registeredName;
+                });
+                Navigator.pop(context);
+              }
+            },
+            child: const Text("Use Item", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -186,23 +230,13 @@ class _ManageStockScreenState extends State<ManageStockScreen> {
                     // Item selection field
                     _FormInputWrapper(
                       label: "Item",
-                      child: TextFormField(
+                      child: SearchProduct(
                         controller: _itemController,
-                        readOnly: true, // Need to be changed to search and have dropdown
-                        onTap: () {
-                          print("Select product tapped");
-                          setState(() {
-                            _itemController.text = "Test Item 1";
-                          });
+                        showRegisterOption: true,
+                        validator: (v) => _itemController.text.isEmpty ? 'Please select a product' : null,
+                        onRegisterNewItem: (newItemQuery) {
+                          _showRegisterItemDialog(newItemQuery);
                         },
-                        validator: (v) => v!.isEmpty ? 'Please select a product' : null,
-                        decoration: InputDecoration(
-                          hintText: "Search product",
-                          hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 18),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          suffixIcon: Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 28),
-                        ),
                       ),
                     ),
 

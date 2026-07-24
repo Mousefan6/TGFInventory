@@ -3,9 +3,17 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../UI/widgets/custom_refresh.dart';
 import '../../services/appsheet_service.dart';
+import '../../ui/widgets/search_product.dart';
 import '../../ui/theme/colors.dart';
 
-class Product { // Product cards for each item
+// TODO: Implement Search Bar from Fast Search method, Connect the tags for the item
+// name from each product so its linked to the list of available items in manage page
+// make a "Register as new" button in the search bars once you press it for names
+// bulletin for home page, make the announcements cards, create new + button,
+// and link the low stock counter
+
+// Product cards for each item
+class Product {
   final String name;
   final int quantity;
   final bool isLowStock;
@@ -37,8 +45,22 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
+  final TextEditingController _searchController = TextEditingController();
   final AppSheetService _apiService = AppSheetService();
   late Future<List<Product>> _productsFuture;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterProductList(String selectedProduct) {
+    setState(() {
+      // TODO: Filter local list or re-fetch products matching `selectedProduct`
+      debugPrint("Filtering products for: $selectedProduct");
+    });
+  }
 
   @override
   void initState() {
@@ -112,29 +134,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Search bar container
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: AppColors.border, width: 1.5),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: "Search product",
-                    hintStyle: GoogleFonts.outfit(
-                        color: Colors.grey.shade400,
-                        fontSize: 18
-                    ),
-                    border: InputBorder.none,
-                    icon: Icon(
-                        Icons.search_rounded,
-                        color: Colors.grey.shade700,
-                        size: 28
-                    ),
-                  ),
-                ),
+              // Search Bar
+              SearchProduct(
+                controller: _searchController,
+                hintText: "Search product",
+                showRegisterOption: false,
+                onItemSelected: (selectedProduct) {
+                  _filterProductList(selectedProduct);
+                },
               ),
               const SizedBox(height: 24),
 
