@@ -6,7 +6,7 @@ class BulletinService {
   static const String bulletinTable = "Bulletin Board";
 
   Uri _getUri(String table) {
-    return Uri.parse('${AppConfig.baseUrl}/$table/Action');
+    return Uri.parse('${AppConfig.bulletinBaseUrl}/$table/Action');
   }
 
   Map<String, String> _getHeaders() {
