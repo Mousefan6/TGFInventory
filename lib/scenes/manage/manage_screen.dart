@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../services/appsheet_service.dart';
+import '../../services/inventory_service.dart';
 import '../../ui/widgets/search_product.dart';
 import '../../ui/theme/colors.dart';
 import '../../ui/widgets/search_user.dart';

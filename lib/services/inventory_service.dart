@@ -7,8 +7,9 @@ class AppSheetService {
   static const String inventoryTable = "TGF Inventory Database";
   static const String bulletinTable = "Bulletin Board";
 
-  Uri _getUri(String table) {
-    return Uri.parse('${AppConfig.baseUrl}/$table/Action');
+  Uri _getUri([String? tableName]) {
+    final targetTable = tableName ?? inventoryTable;
+    return Uri.parse('${AppConfig.baseUrl}/$targetTable/Action');
   }
 
   Map<String, String> _getHeaders() {
@@ -25,12 +26,12 @@ class AppSheetService {
 
     try {
       final response = await http.post(
-        _getUri(),
+        _getUri(inventoryTable),
         headers: _getHeaders(),
         body: jsonEncode({
           "Action": "Find",
           "Properties": {"Locale": "en-US"},
-          "Selector": "Filter($tableName, CONTAINS([Item], \"$trimmed\"))"
+          "Selector": "Filter($inventoryTable, CONTAINS([Item], \"$trimmed\"))"
         }),
       );
 
@@ -220,10 +221,7 @@ class AppSheetService {
     return inventory;
   }
 
-  // ==========================
   // Bulletin Board
-  // ==========================
-
   Future<bool> createBulletinPost({required String user, required String comment}) async {
     final body = jsonEncode({
       "Action": "Add",
@@ -270,8 +268,8 @@ class AppSheetService {
 
   Future<bool> deleteBulletinPost(Map<String, dynamic> postRow) async {
     // Dynamically look for the correct row key returned by AppSheet
-    final keyVal = postRow['ID'] ??
-        postRow['id'] ??
+    final keyVal = postRow['LogID'] ??
+        postRow['ID'] ??
         postRow['Row ID'] ??
         postRow['_RowNumber'] ??
         postRow.values.first;

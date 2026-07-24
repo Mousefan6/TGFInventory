@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../services/appsheet_service.dart';
+import '../../services/inventory_service.dart';
 import '../theme/colors.dart';
 
 class SearchProduct extends StatefulWidget {

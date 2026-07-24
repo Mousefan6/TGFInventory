@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tgfinventory/UI/widgets/custom_refresh.dart';
 import 'package:tgfinventory/UI/widgets/search_product.dart';
 
-import '../../services/appsheet_service.dart';
+import '../../services/inventory_service.dart';
 import '../../ui/theme/colors.dart';
 
 class History { // History cards for each item

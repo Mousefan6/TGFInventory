@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../UI/widgets/custom_refresh.dart';
-import '../../services/appsheet_service.dart';
+import '../../services/inventory_service.dart';
 import '../../ui/widgets/search_product.dart';
 import '../../ui/theme/colors.dart';
+
+// TODO: Update the UI for product details for product and history page
 
 class Product {
   final String name;
@@ -61,7 +63,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
     try {
       final rawData = await _apiService.getAggregatedInventory();
       final products = rawData.map((json) => Product.fromJson(json)).toList();
-
       setState(() {
         _allProducts = products;
         _isLoading = false;

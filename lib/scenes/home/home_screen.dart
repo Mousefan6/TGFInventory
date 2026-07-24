@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../services/appsheet_service.dart';
+import '../../services/bulletin_service.dart';
 import '../../ui/theme/colors.dart';
 import '../../ui/widgets/dashboard_card.dart';
 
@@ -13,7 +13,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _apiService = AppSheetService();
+  final _apiService = BulletinService();
 
   List<Map<String, dynamic>> _bulletinPosts = [];
   bool _isLoading = true;
@@ -252,12 +252,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (!mounted) return;
 
                           ScaffoldMessenger.of(homeContext).showSnackBar(                            SnackBar(
-                              content: Text(
-                                success
-                                    ? "Bulletin posted!"
-                                    : "Failed to post bulletin.",
-                              ),
+                            content: Text(
+                              success
+                                  ? "Bulletin posted!"
+                                  : "Failed to post bulletin.",
                             ),
+                          ),
                           );
 
                           if (success) {
