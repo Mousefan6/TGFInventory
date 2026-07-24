@@ -4,10 +4,11 @@ import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
 
 class AppSheetService {
-  final String tableName = 'TGF Inventory Database';
+  static const String inventoryTable = "TGF Inventory Database";
+  static const String bulletinTable = "Bulletin Board";
 
-  Uri _getUri() {
-    return Uri.parse('${AppConfig.baseUrl}/$tableName/Action');
+  Uri _getUri(String table) {
+    return Uri.parse('${AppConfig.baseUrl}/$table/Action');
   }
 
   Map<String, String> _getHeaders() {
@@ -97,11 +98,15 @@ class AppSheetService {
       ]
     });
 
-    final response = await http.post(_getUri(), headers: _getHeaders(), body: body);
+    final response = await http.post(
+      _getUri(inventoryTable),
+      headers: _getHeaders(),
+      body: body,
+    );
+
     return response.statusCode == 200;
   }
 
-  // Read logs for cards
   Future<List<Map<String, dynamic>>> readAllLogs() async {
     final body = jsonEncode({
       "Action": "Find",
@@ -109,17 +114,20 @@ class AppSheetService {
       "Rows": []
     });
 
-    final response = await http.post(_getUri(), headers: _getHeaders(), body: body);
+    final response = await http.post(
+      _getUri(inventoryTable),
+      headers: _getHeaders(),
+      body: body,
+    );
 
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body);
       return List<Map<String, dynamic>>.from(decoded);
-    } else {
-      throw Exception('Failed to fetch records: ${response.statusCode}');
     }
+
+    throw Exception("Failed to fetch records");
   }
 
-  // Update logs
   Future<bool> updateStockLog({
     required String logId,
     required String item,
@@ -141,7 +149,12 @@ class AppSheetService {
       ]
     });
 
-    final response = await http.post(_getUri(), headers: _getHeaders(), body: body);
+    final response = await http.post(
+      _getUri(inventoryTable),
+      headers: _getHeaders(),
+      body: body,
+    );
+
     return response.statusCode == 200;
   }
 
@@ -154,47 +167,136 @@ class AppSheetService {
       "Rows": [{"LogID": logId}]
     });
 
-    final response = await http.post(_getUri(), headers: _getHeaders(), body: body);
+    final response = await http.post(
+      _getUri(inventoryTable),
+      headers: _getHeaders(),
+      body: body,
+    );
+
     return response.statusCode == 200;
   }
 
-  // Function to get total stock for specific item given name
   Future<int> getItemStockCount(String itemName) async {
     final allLogs = await readAllLogs();
-    int currentTotalStock = 0;
+
+    int total = 0;
 
     for (var row in allLogs) {
-      if ((row['Item'] ?? row['name']) == itemName) {
-        final rawQty = row['Quantity'];
-        currentTotalStock += rawQty is int ? rawQty : int.tryParse(rawQty.toString()) ?? 0;
+      if ((row["Item"] ?? row["name"]) == itemName) {
+        final qty = row["Quantity"];
+        total += qty is int ? qty : int.tryParse(qty.toString()) ?? 0;
       }
     }
-    return currentTotalStock;
+
+    return total;
   }
 
   // Summarized list of all products (grouped and summed)
   Future<List<Map<String, dynamic>>> getAggregatedInventory() async {
     final rawData = await readAllLogs();
+
     final Map<String, int> inventoryMap = {};
 
     for (var row in rawData) {
-      final String itemName = row['Item'] ?? row['name'] ?? 'Unknown Product';
-      final rawQty = row['Quantity'];
-      final int parsedQty = rawQty is int ? rawQty : int.tryParse(rawQty.toString()) ?? 0;
+      final item = row["Item"] ?? row["name"] ?? "Unknown";
+      final qty = row["Quantity"];
+      final parsedQty =
+      qty is int ? qty : int.tryParse(qty.toString()) ?? 0;
 
-      inventoryMap[itemName] = (inventoryMap[itemName] ?? 0) + parsedQty;
+      inventoryMap[item] = (inventoryMap[item] ?? 0) + parsedQty;
     }
 
-    final List<Map<String, dynamic>> flatInventory = [];
-    inventoryMap.forEach((name, totalQuantity) {
-      if (totalQuantity > 0) {
-        flatInventory.add({
-          'Item': name,
-          'Quantity': totalQuantity,
+    final List<Map<String, dynamic>> inventory = [];
+
+    inventoryMap.forEach((item, qty) {
+      if (qty > 0) {
+        inventory.add({
+          "Item": item,
+          "Quantity": qty,
         });
       }
     });
 
-    return flatInventory;
+    return inventory;
+  }
+
+  // ==========================
+  // Bulletin Board
+  // ==========================
+
+  Future<bool> createBulletinPost({required String user, required String comment}) async {
+    final body = jsonEncode({
+      "Action": "Add",
+      "Properties": {"Locale": "en-US"},
+      "Rows": [
+        {
+          "LogID": DateTime.now().millisecondsSinceEpoch.toString(), // Ensures a primary key is always provided
+          "User": user,
+          "Comment": comment,
+          "Timestamp": DateTime.now().toIso8601String(),
+        }
+      ]
+    });
+
+    final response = await http.post(
+      _getUri(bulletinTable),
+      headers: _getHeaders(),
+      body: body,
+    );
+
+    return response.statusCode == 200 || response.statusCode == 201;
+  }
+
+  Future<List<Map<String, dynamic>>> readAllBulletinPosts() async {
+    final body = jsonEncode({
+      "Action": "Find",
+      "Properties": {"Locale": "en-US"},
+      "Rows": []
+    });
+
+    final response = await http.post(
+      _getUri(bulletinTable),
+      headers: _getHeaders(),
+      body: body,
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return List<Map<String, dynamic>>.from(decoded);
+    }
+
+    throw Exception("Failed to fetch bulletin posts");
+  }
+
+  Future<bool> deleteBulletinPost(Map<String, dynamic> postRow) async {
+    // Dynamically look for the correct row key returned by AppSheet
+    final keyVal = postRow['ID'] ??
+        postRow['id'] ??
+        postRow['Row ID'] ??
+        postRow['_RowNumber'] ??
+        postRow.values.first;
+
+    final keyName = postRow.containsKey('ID') ? 'ID' :
+    postRow.containsKey('id') ? 'id' :
+    postRow.containsKey('Row ID') ? 'Row ID' :
+    postRow.containsKey('_RowNumber') ? '_RowNumber' : 'ID';
+
+    final body = jsonEncode({
+      "Action": "Delete",
+      "Properties": {"Locale": "en-US"},
+      "Rows": [
+        {
+          keyName: keyVal,
+        }
+      ]
+    });
+
+    final response = await http.post(
+      _getUri(bulletinTable),
+      headers: _getHeaders(),
+      body: body,
+    );
+
+    return response.statusCode == 200;
   }
 }
