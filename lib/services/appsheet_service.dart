@@ -166,24 +166,20 @@ class AppSheetService {
   // ==========================
   // Bulletin Board
   // ==========================
-  Future<bool> createBulletinPost({
-    required String user,
-    required String comment,
-  }) async {
+
+  Future<bool> createBulletinPost({required String user, required String comment}) async {
     final body = jsonEncode({
       "Action": "Add",
       "Properties": {"Locale": "en-US"},
       "Rows": [
         {
+          "LogID": DateTime.now().millisecondsSinceEpoch.toString(), // Ensures a primary key is always provided
           "User": user,
           "Comment": comment,
+          "Timestamp": DateTime.now().toIso8601String(),
         }
       ]
     });
-
-    print("URL: ${_getUri(bulletinTable)}");
-    print("Headers: ${_getHeaders()}");
-    print("Body: $body");
 
     final response = await http.post(
       _getUri(bulletinTable),
@@ -191,8 +187,58 @@ class AppSheetService {
       body: body,
     );
 
-    print("Status: ${response.statusCode}");
-    print("Response: '${response.body}'");
+    return response.statusCode == 200 || response.statusCode == 201;
+  }
+
+  Future<List<Map<String, dynamic>>> readAllBulletinPosts() async {
+    final body = jsonEncode({
+      "Action": "Find",
+      "Properties": {"Locale": "en-US"},
+      "Rows": []
+    });
+
+    final response = await http.post(
+      _getUri(bulletinTable),
+      headers: _getHeaders(),
+      body: body,
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return List<Map<String, dynamic>>.from(decoded);
+    }
+
+    throw Exception("Failed to fetch bulletin posts");
+  }
+
+  Future<bool> deleteBulletinPost(Map<String, dynamic> postRow) async {
+    // Dynamically look for the correct row key returned by AppSheet
+    final keyVal = postRow['ID'] ??
+        postRow['id'] ??
+        postRow['Row ID'] ??
+        postRow['_RowNumber'] ??
+        postRow.values.first;
+
+    final keyName = postRow.containsKey('ID') ? 'ID' :
+    postRow.containsKey('id') ? 'id' :
+    postRow.containsKey('Row ID') ? 'Row ID' :
+    postRow.containsKey('_RowNumber') ? '_RowNumber' : 'ID';
+
+    final body = jsonEncode({
+      "Action": "Delete",
+      "Properties": {"Locale": "en-US"},
+      "Rows": [
+        {
+          keyName: keyVal,
+        }
+      ]
+    });
+
+    final response = await http.post(
+      _getUri(bulletinTable),
+      headers: _getHeaders(),
+      body: body,
+    );
 
     return response.statusCode == 200;
   }
