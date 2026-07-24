@@ -3,9 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../UI/widgets/custom_refresh.dart';
 import '../../services/appsheet_service.dart';
+import '../../ui/widgets/search_product.dart';
 import '../../ui/theme/colors.dart';
 
-class Product { // Product cards for each item
+class Product {
   final String name;
   final int quantity;
   final bool isLowStock;
@@ -16,7 +17,6 @@ class Product { // Product cards for each item
     required this.isLowStock,
   });
 
-  // Build product card parsing JSON from AppSheet
   factory Product.fromJson(Map<String, dynamic> json) {
     final rawQty = json['Quantity'];
     final int parsedQty = rawQty is int ? rawQty : int.tryParse(rawQty.toString()) ?? 0;
@@ -24,7 +24,7 @@ class Product { // Product cards for each item
     return Product(
       name: json['Item'] ?? json['name'] ?? 'Unknown Product',
       quantity: parsedQty,
-      isLowStock: parsedQty <= 5, // Might need to change hard set parameter
+      isLowStock: parsedQty <= 5, // Hardcoded might need to change
     );
   }
 }
@@ -37,8 +37,12 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
+  final TextEditingController _searchController = TextEditingController();
   final AppSheetService _apiService = AppSheetService();
-  late Future<List<Product>> _productsFuture;
+
+  List<Product> _allProducts = [];
+  List<Product> _filteredProducts = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -46,22 +50,86 @@ class _ProductsScreenState extends State<ProductsScreen> {
     _loadProducts();
   }
 
-  void _loadProducts() {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProducts() async {
+    setState(() => _isLoading = true);
+    try {
+      final rawData = await _apiService.getAggregatedInventory();
+      final products = rawData.map((json) => Product.fromJson(json)).toList();
+
+      setState(() {
+        _allProducts = products;
+        _isLoading = false;
+      });
+
+      _filterProductList(_searchController.text);
+    } catch (e) {
+      setState(() => _isLoading = false);
+      debugPrint("Error loading products: $e");
+    }
+  }
+
+  int _calculateRelevanceScore(String item, List<String> queryTokens, String rawQuery) {
+    final lowerItem = item.toLowerCase();
+    int score = 0;
+
+    if (lowerItem == rawQuery) score += 1000;
+    if (lowerItem.startsWith(rawQuery)) score += 500;
+
+    final itemWords = lowerItem.split(RegExp(r'\s+'));
+
+    for (String token in queryTokens) {
+      if (token.isEmpty) continue;
+      for (String word in itemWords) {
+        if (word == token) {
+          score += 100;
+        } else if (word.startsWith(token)) {
+          score += 50;
+        } else if (word.contains(token)) {
+          score += 10;
+        }
+      }
+    }
+    return score;
+  }
+
+  void _filterProductList(String selectedProduct) {
+    final rawQuery = selectedProduct.trim();
+    final lowerQuery = rawQuery.toLowerCase();
+    final queryTokens = lowerQuery.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+
     setState(() {
-      _productsFuture = _fetchProductsFromAppSheet();
+      if (queryTokens.isEmpty) {
+        setState(() {
+          _filteredProducts = List.from(_allProducts);
+        });
+        return;
+      } else {
+        // Filter items containing all typed tokens
+        var matches = _allProducts.where((product) {
+          final lowerName = product.name.toLowerCase();
+          return queryTokens.every((token) => lowerName.contains(token));
+        }).toList();
+
+        // Rank remaining items by tokenized score with most relevant first
+        matches.sort((a, b) {
+          final scoreA = _calculateRelevanceScore(a.name, queryTokens, lowerQuery);
+          final scoreB = _calculateRelevanceScore(b.name, queryTokens, lowerQuery);
+          return scoreB.compareTo(scoreA);
+        });
+
+        _filteredProducts = matches;
+      }
     });
   }
 
-  // Fetch data from appsheet
-  Future<List<Product>> _fetchProductsFromAppSheet() async {
-    final aggregatedData = await _apiService.getAggregatedInventory();
-    return aggregatedData.map((jsonRow) => Product.fromJson(jsonRow)).toList();
-  }
-
-  // Refresh helper
   Future<void> _handleRefresh() async {
-    _loadProducts();
-    await _productsFuture;
+    await _loadProducts();
   }
 
   void _showProductDetails(BuildContext context, Product product) {
@@ -69,15 +137,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-            product.name,
-            style: GoogleFonts.outfit(
-                fontWeight:
-                FontWeight.bold
-            )
+          product.name,
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
-        content: Text("Current Stock: ${product.quantity} Units",
-            style: GoogleFonts.outfit()
-        ),
+        content: Text("Current Stock: ${product.quantity} Units", style: GoogleFonts.outfit()),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -112,29 +175,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Search bar container
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: AppColors.border, width: 1.5),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: "Search product",
-                    hintStyle: GoogleFonts.outfit(
-                        color: Colors.grey.shade400,
-                        fontSize: 18
-                    ),
-                    border: InputBorder.none,
-                    icon: Icon(
-                        Icons.search_rounded,
-                        color: Colors.grey.shade700,
-                        size: 28
-                    ),
-                  ),
-                ),
+              // Search Bar
+              SearchProduct(
+                controller: _searchController,
+                hintText: "Search product",
+                showRegisterOption: false,
+                hasBorder: true,
+                onItemSelected: (selectedProduct) {
+                  _filterProductList(selectedProduct);
+                },
               ),
               const SizedBox(height: 24),
 
@@ -145,71 +194,31 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                        "Product",
-                        style: GoogleFonts.outfit(fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.greyText)
+                      "Product",
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.greyText,
+                      ),
                     ),
                     Text(
-                        "QTY",
-                        style: GoogleFonts.outfit(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.greyText
-                        )
+                      "QTY",
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.greyText,
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 10),
 
-              // Refresh logic
+              // List View
               Expanded(
                 child: CustomPullToRefresh(
                   onRefresh: _handleRefresh,
-                  child: FutureBuilder<List<Product>>(
-                    future: _productsFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            SizedBox(height: MediaQuery.of(context).size.height * 0.25),
-                            Center(
-                                child: Text('Error loading inventory data.\nSwipe down to retry.',
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.outfit(color: Colors.grey)
-                                )
-                            ),
-                          ],
-                        );
-                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            SizedBox(height: MediaQuery.of(context).size.height * 0.25),
-                            Center(
-                                child: Text('No products currently registered.',
-                                    style: GoogleFonts.outfit(color: Colors.grey)
-                                )
-                            ),
-                          ],
-                        );
-                      }
-
-                      final products = snapshot.data!;
-                      return ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: products.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          return _buildProductCard(context, products[index]);
-                        },
-                      );
-                    },
-                  ),
+                  child: _buildProductListView(),
                 ),
               ),
             ],
@@ -219,13 +228,40 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  Widget _buildProductCard(BuildContext context, Product product) {
-    final Color qtyColor;
-    if (product.isLowStock) {
-      qtyColor = product.quantity <= 1 ? AppColors.redButton : Colors.orange.shade700;
-    } else {
-      qtyColor = Colors.green.shade600;
+  Widget _buildProductListView() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
     }
+
+    if (_filteredProducts.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+          Center(
+            child: Text(
+              _allProducts.isEmpty ? 'No products currently registered.' : 'No matching products found.',
+              style: GoogleFonts.outfit(color: Colors.grey),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: _filteredProducts.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        return _buildProductCard(context, _filteredProducts[index]);
+      },
+    );
+  }
+
+  Widget _buildProductCard(BuildContext context, Product product) {
+    final Color qtyColor = product.isLowStock
+        ? (product.quantity <= 1 ? AppColors.redButton : Colors.orange.shade700)
+        : Colors.green.shade600;
 
     return Container(
       decoration: BoxDecoration(
@@ -247,14 +283,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     product.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                    style: GoogleFonts.outfit(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF0F172A),
+                    ),
                   ),
                 ),
                 if (product.isLowStock) ...[
                   const SizedBox(height: 4),
                   Text(
                     "LOW STOCK",
-                    style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.orange.shade700),
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange.shade700,
+                    ),
                   ),
                 ]
               ],
@@ -265,12 +309,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
             children: [
               Text(
                 "${product.quantity}",
-                style: GoogleFonts.outfit(fontSize: 38, fontWeight: FontWeight.bold, color: qtyColor, height: 1.0),
+                style: GoogleFonts.outfit(
+                  fontSize: 38,
+                  fontWeight: FontWeight.bold,
+                  color: qtyColor,
+                  height: 1.0,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 "Units",
-                style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade500,
+                ),
               ),
             ],
           ),
