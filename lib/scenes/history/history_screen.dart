@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tgfinventory/UI/widgets/custom_refresh.dart';
+import 'package:tgfinventory/UI/widgets/search_product.dart';
 
 import '../../services/appsheet_service.dart';
 import '../../ui/theme/colors.dart';
@@ -43,8 +44,13 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
+  final TextEditingController _historySearchController = TextEditingController();
   final AppSheetService _apiService = AppSheetService();
-  late Future<List<History>> _historyFuture;
+
+  List<History> _allHistory = [];
+  List<History> _filteredHistory = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -52,21 +58,65 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _loadHistory();
   }
 
-  void _loadHistory() {
+  @override
+  void dispose() {
+    _historySearchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadHistory() async {
     setState(() {
-      _historyFuture = _fetchHistoryFromAppSheet();
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final rawLogs = await _apiService.readAllLogs();
+      final parsedHistory = rawLogs
+          .map((jsonRow) => History.fromJson(jsonRow))
+          .toList()
+          .reversed
+          .toList();
+
+      setState(() {
+        _allHistory = parsedHistory;
+        _filteredHistory = parsedHistory;
+        _isLoading = false;
+      });
+
+      // Re-apply existing search query if active
+      if (_historySearchController.text.isNotEmpty) {
+        _filterHistoryLogs(_historySearchController.text);
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error loading history logs.\nSwipe down to retry.';
+      });
+    }
+  }
+
+  void _filterHistoryLogs(String query) {
+    final tokens = query.trim().toLowerCase().split(RegExp(r'\s+'));
+    if (tokens.isEmpty || query.trim().isEmpty) {
+        setState(() {
+          _filteredHistory = List.from(_allHistory);
+      });
+      return;
+    }
+
+    // Tokenize to match start of an item in the Database
+    setState(() {
+      _filteredHistory = _allHistory.where((history) {
+        final itemName = history.name.toLowerCase();
+       return tokens.every((token) =>
+            itemName.split(RegExp(r'\s+')).any((word) => word.startsWith(token)));
+      }).toList();
     });
   }
 
-  // Newest to oldest order
-  Future<List<History>> _fetchHistoryFromAppSheet() async {
-    final rawLogs = await _apiService.readAllLogs();
-    return rawLogs.map((jsonRow) => History.fromJson(jsonRow)).toList().reversed.toList();
-  }
-
   Future<void> _handleHistoryRefresh() async {
-    _loadHistory();
-    await _historyFuture;
+    await _loadHistory();
   }
 
   void _showHistoryDetails(BuildContext context, History history) {
@@ -77,7 +127,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         content: Text(
           "${history.add ? 'Added' : 'Removed'} ${history.amount} Units\n\n"
-              "Operator: ${history.name}\n\n"
+              "Operator: ${history.user}\n\n"
               "Note: ${history.note.isEmpty ? 'No description' : history.note}",
           style: GoogleFonts.outfit(),
         ),
@@ -118,27 +168,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SizedBox(height: 20),
 
               // Search bar
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: AppColors.border, width: 1.5),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: "Search history",
-                    hintStyle: GoogleFonts.outfit(
-                      color: Colors.grey.shade400,
-                      fontSize: 18,
-                    ),
-                    border: InputBorder.none,
-                    icon: Icon(Icons.search_rounded, color: Colors.grey.shade700, size: 28),
-                    suffixIcon: Icon(Icons.chevron_right, color: Colors.grey.shade400),
-                  ),
-                ),
+              SearchProduct(
+                controller: _historySearchController,
+                hintText: "Filter logs by product...",
+                showRegisterOption: false,
+                onItemSelected: (selectedProduct) {
+                  _filterHistoryLogs(selectedProduct);
+                },
               ),
-
               const SizedBox(height: 24),
 
               // Table Headings
@@ -173,40 +210,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Expanded(
                 child: CustomPullToRefresh(
                   onRefresh: _handleHistoryRefresh,
-                  child: FutureBuilder<List<History>>(
-                    future: _historyFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                            Center(child: Text('Error loading history logs.\nSwipe down to retry.', textAlign: TextAlign.center, style: GoogleFonts.outfit(color: Colors.grey))),
-                          ],
-                        );
-                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                            Center(child: Text('No historical logs registered yet.', style: GoogleFonts.outfit(color: Colors.grey))),
-                          ],
-                        );
-                      }
-
-                      final logs = snapshot.data!;
-                      return ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: logs.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          return _buildHistoryCard(context, logs[index]);
-                        },
-                      );
-                    },
-                  ),
+                  child: _buildHistoryList(),
                 ),
               ),
             ],
@@ -216,15 +220,55 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  // Create log cards, Colors are static
-  Widget _buildHistoryCard(BuildContext context, History history) {
-
-    final Color addColor;
-    if (history.add) {
-      addColor = Colors.green.shade600;
-    } else {
-      addColor = Colors.red.shade600;
+  Widget _buildHistoryList() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
     }
+
+    if (_errorMessage != null) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+          Center(
+            child: Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(color: Colors.grey),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_filteredHistory.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+          Center(
+            child: Text(
+              'No historical logs registered yet.',
+              style: GoogleFonts.outfit(color: Colors.grey),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: _filteredHistory.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        return _buildHistoryCard(context, _filteredHistory[index]);
+      },
+    );
+  }
+
+  // Create log cards
+  Widget _buildHistoryCard(BuildContext context, History history) {
+    final Color addColor = history.add ? Colors.green.shade600 : Colors.red.shade600;
 
     return Container(
       decoration: BoxDecoration(
@@ -242,11 +286,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                history.add
-                    ? Icon(Icons.add_circle_outline_sharp, color: addColor, size: 40,)
-                    : Icon(Icons.remove_circle_outline_sharp, color: addColor, size: 32,)
+              history.add
+                  ? Icon(Icons.add_circle_outline_sharp, color: addColor, size: 40)
+                  : Icon(Icons.remove_circle_outline_sharp, color: addColor, size: 32)
             ],
           ),
+          const SizedBox(width: 12),
 
           // Left column, History name
           Expanded(
@@ -268,17 +313,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
                 ),
-
-                  Text(
-                    history.user,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey.shade500,
-                    ),
+                Text(
+                  history.user,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade500,
                   ),
+                ),
                 Text(
                   history.note,
                   maxLines: 1,
@@ -304,7 +348,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   fontWeight: FontWeight.bold,
                   height: 1.0,
                   color: addColor,
-
                 ),
               ),
               const SizedBox(height: 2),

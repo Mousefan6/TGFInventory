@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
 
@@ -12,8 +13,68 @@ class AppSheetService {
   Map<String, String> _getHeaders() {
     return {
       'Content-Type': 'application/json',
-      'applicationAccessKey': AppConfig.appsheetAccessKey,
+      'ApplicationAccessKey': AppConfig.appsheetAccessKey,
     };
+  }
+
+  // Fetch unique item names for autocomplete
+  Future<List<String>> fetchItemNames(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
+
+    try {
+      final response = await http.post(
+        _getUri(),
+        headers: _getHeaders(),
+        body: jsonEncode({
+          "Action": "Find",
+          "Properties": {"Locale": "en-US"},
+          "Selector": "Filter($tableName, CONTAINS([Item], \"$trimmed\"))"
+        }),
+      );
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          final Set<String> uniqueNames = {};
+          for (var item in decoded) {
+            final name = item['Item']?.toString() ?? '';
+            if (name.isNotEmpty) uniqueNames.add(name);
+          }
+          return uniqueNames.toList();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching item names: $e');
+    }
+    return [];
+  }
+
+  // Fetch unique user names for autocomplete
+  Future<List<String>> fetchUserNames(String query) async {
+    try {
+      final logs = await readAllLogs();
+      final Set<String> uniqueUsers = {};
+
+      for (var log in logs) {
+        final userName = log['User']?.toString().trim() ?? '';
+        if (userName.isNotEmpty) {
+          uniqueUsers.add(userName);
+        }
+      }
+
+      if (query.trim().isEmpty) {
+        return uniqueUsers.toList();
+      }
+
+      final lowerQuery = query.toLowerCase();
+      return uniqueUsers
+          .where((user) => user.toLowerCase().contains(lowerQuery))
+          .toList();
+    } catch (e) {
+      debugPrint('Error fetching user names: $e');
+      return [];
+    }
   }
 
   // Create new stock item
@@ -60,7 +121,7 @@ class AppSheetService {
 
   // Update logs
   Future<bool> updateStockLog({
-    required String logId, // Key required here to locate the row #
+    required String logId,
     required String item,
     required int quantity,
     required String user,
@@ -84,16 +145,13 @@ class AppSheetService {
     return response.statusCode == 200;
   }
 
+  // TODO: Add a button that allows the user to remove a log/item completely from database
   // Remove log
   Future<bool> deleteStockLog(String logId) async {
     final body = jsonEncode({
       "Action": "Delete",
       "Properties": {"Locale": "en-US"},
-      "Rows": [
-        {
-          "LogID": logId
-        }
-      ]
+      "Rows": [{"LogID": logId}]
     });
 
     final response = await http.post(_getUri(), headers: _getHeaders(), body: body);
@@ -114,7 +172,7 @@ class AppSheetService {
     return currentTotalStock;
   }
 
-  // returns a fully summarized list of all products (grouped and summed)
+  // Summarized list of all products (grouped and summed)
   Future<List<Map<String, dynamic>>> getAggregatedInventory() async {
     final rawData = await readAllLogs();
     final Map<String, int> inventoryMap = {};
